@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IoT Dashboard ESP32</title>
+  <meta name="description" content="Dashboard IoT sederhana untuk monitoring suhu, kelembapan, dan kontrol relay." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="header">
+      <div>
+        <p class="eyebrow">IoT Dashboard</p>
+        <h1>Monitoring Suhu & Kelembapan</h1>
+        <p class="subtitle">Kontrol relay sederhana untuk pemula.</p>
+      </div>
+      <div class="header-status">
+        <div class="status-card">
+          <span class="status-label">MQTT</span>
+          <span id="mqtt-status-text" class="status-value disconnected">Disconnected</span>
+        </div>
+        <div class="status-card">
+          <span class="status-label">Waktu</span>
+          <span id="realtime-clock" class="status-value mono">--:--:--</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <section class="overview-grid">
+        <article class="sensor-card sensor-card--temp" id="suhu-card">
+          <div class="sensor-top">
+            <span>Suhu</span>
+            <span class="sensor-unit">°C</span>
+          </div>
+          <div id="suhu-value" class="sensor-value mono">--</div>
+          <p id="suhu-status" class="sensor-note">Menunggu data</p>
+          <p id="suhu-alert" class="sensor-alert hidden">⚠️ Peringatan: suhu mencapai 30°C atau lebih.</p>
+        </article>
+
+        <article class="sensor-card sensor-card--humid">
+          <div class="sensor-top">
+            <span>Kelembapan</span>
+            <span class="sensor-unit">%</span>
+          </div>
+          <div id="kelembapan-value" class="sensor-value mono">--</div>
+          <p class="sensor-note">DHT22 Sensor</p>
+        </article>
+
+        <article class="sensor-card sensor-card--ldr" id="ldr-card">
+          <div class="sensor-top">
+            <span>Cahaya LDR</span>
+            <span class="sensor-unit">ADC</span>
+          </div>
+          <div id="ldr-value" class="sensor-value mono">--</div>
+          <p id="ldr-status" class="sensor-note">Menunggu data</p>
+        </article>
+      </section>
+
+      <section class="relay-section">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Kontrol Relay</p>
+            <h2>4 Channel</h2>
+          </div>
+          <div class="relay-actions">
+            <button class="btn btn-secondary" type="button" onclick="setAllRelay('ON')">Semua ON</button>
+            <button class="btn btn-secondary" type="button" onclick="setAllRelay('OFF')">Semua OFF</button>
+          </div>
+        </div>
+
+        <div class="relay-grid">
+          <article class="relay-card" id="rc-1">
+            <p class="relay-title">Relay 1</p>
+            <p class="relay-status mono" id="rs-1">OFF</p>
+            <div class="relay-buttons">
+              <button class="btn btn-on" type="button" onclick="setRelay(1, 'ON')">ON</button>
+              <button class="btn btn-off" type="button" onclick="setRelay(1, 'OFF')">OFF</button>
+            </div>
+          </article>
+          <article class="relay-card" id="rc-2">
+            <p class="relay-title">Relay 2</p>
+            <p class="relay-status mono" id="rs-2">OFF</p>
+            <div class="relay-buttons">
+              <button class="btn btn-on" type="button" onclick="setRelay(2, 'ON')">ON</button>
+              <button class="btn btn-off" type="button" onclick="setRelay(2, 'OFF')">OFF</button>
+            </div>
+          </article>
+          <article class="relay-card" id="rc-3">
+            <p class="relay-title">Relay 3</p>
+            <p class="relay-status mono" id="rs-3">OFF</p>
+            <div class="relay-buttons">
+              <button class="btn btn-on" type="button" onclick="setRelay(3, 'ON')">ON</button>
+              <button class="btn btn-off" type="button" onclick="setRelay(3, 'OFF')">OFF</button>
+            </div>
+          </article>
+          <article class="relay-card" id="rc-4">
+            <p class="relay-title">Relay 4</p>
+            <p class="relay-status mono" id="rs-4">OFF</p>
+            <div class="relay-buttons">
+              <button class="btn btn-on" type="button" onclick="setRelay(4, 'ON')">ON</button>
+              <button class="btn btn-off" type="button" onclick="setRelay(4, 'OFF')">OFF</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="chart-card">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Grafik Suhu</p>
+            <h2>Data Realtime</h2>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chartSuhu"></canvas>
+        </div>
+      </section>
+
+      <section class="chart-card">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Grafik Kelembapan</p>
+            <h2>Data Realtime</h2>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chartKelembapan"></canvas>
+        </div>
+      </section>
+
+      <section class="table-card">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Riwayat Data</p>
+            <h2>Tabel Sensor</h2>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="history-table">
+            <thead>
+              <tr>
+                <th>Waktu</th>
+                <th>Suhu (°C)</th>
+                <th>Kelembapan (%)</th>
+              </tr>
+            </thead>
+            <tbody id="history-body">
+              <!-- Rows will be added here -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
